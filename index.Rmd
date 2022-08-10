@@ -1,0 +1,129 @@
+---
+title: "Weight Lifting Exercise Quality"
+author: "Luis Talavera"
+date: "August 9th 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment= "", message = FALSE)
+```
+
+## Summary
+The goal of this project is create model to predict the quality of how an exercise is performed using data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
+
+## The data
+
+The data used in this report was recorded by accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. Participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions:
+exactly according to the specification (Class A), throwing the elbows to the
+front (Class B), lifting the dumbbell only halfway (Class C), lowering the 
+dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+Class A corresponds to the specified execution of the exercise, while the other 4
+classes correspond to common mistakes.
+
+```{r load_data}
+library(readr)
+
+if (!file.exists("data/pml-training.csv")) {
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+                destfile = "data/pml-training.csv")
+}
+
+if (!file.exists("data/pml-testing.csv")) {
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+                destfile = "data/pml-testing.csv")
+}
+
+pml_training <- read_csv("data/pml-training.csv", na=c("NA","#DIV/0!",""))
+pml_testing <- read_csv("data/pml-testing.csv", na=c("NA","#DIV/0!",""))
+```
+
+After looking at the data, I noticed that there were columns where 90% or more of
+their data were NA so I decided to remove them.
+
+```{r clean_data}
+library(dplyr)
+
+pml_training <- Filter(function(x) mean(is.na(x)) < 0.5, pml_training)
+pml_testing <- Filter(function(x) mean(is.na(x)) < 0.5, pml_testing)
+
+# Removing identification variables
+pml_training <- pml_training[-(1:5)]
+
+# Categorical variable
+pml_training$classe <- factor(pml_training$classe)
+```
+
+The data were split in a 67-33 ratio to perform training and testing.
+
+```{r parallel, echo = FALSE}
+library(parallel)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
+registerDoParallel(cluster)
+```
+
+
+```{r split_data}
+library(caret)
+set.seed(1234)
+trainIndex <- createDataPartition(y=pml_training$classe, times=1, 
+                                  p=0.67, list=FALSE)
+
+pmltrain <- pml_training[trainIndex, ]
+pmltest <- pml_training[-trainIndex, ]
+
+train.names <- colnames(pml_training[, -ncol(pml_training)])
+pml_testing <- pml_testing[train.names]
+
+```
+
+```{r model, cache = TRUE}
+set.seed(1234)
+fitControl <- trainControl(method = "cv",
+                           number = 5,
+                           allowParallel = TRUE)
+
+fit <- train(classe ~ ., method="rf", data=pmltrain, trControl = fitControl)
+fit$finalModel
+```
+
+Now, we will use our model to predict test data and create a confusion matrix
+
+```{r predict, cache = TRUE}
+predictFit <- predict(fit, newdata = pmltest)
+cm <- confusionMatrix(predictFit, pmltest$classe)
+cm
+```
+```{r heatmap, echo=FALSE}
+library(ggplot2)
+
+df <- as.data.frame(cm$table)
+
+ggplot(df, aes(Prediction, Reference, fill = Freq)) +
+  geom_tile(color = "white",
+            lwd = 1.5,
+            linetype = 1) +
+  labs(x = "Prediction", y = "Actual", title = "Confusion matrix of quality",
+       fill = "Select") +
+  geom_text(aes(label = Freq), color = "white", size = 4) +
+  coord_fixed() 
+```
+
+
+
+```{r turnOffParallelism, echo = FALSE}
+stopCluster(cluster)
+registerDoSEQ()
+```
+
+
+## Conclusions 
+
+In this case, given the fact we are using random forest method, our in sample error is OOB and it has the value of 0.25%, in the other hand, our out sample error is 0.025.
+
+
+## Bibliography
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
