@@ -7,9 +7,7 @@ output:
     keep_md: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, comment= "", message = FALSE)
-```
+
 
 ## Summary
 The goal of this project is create model to predict the quality of how an exercise is performed using data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
@@ -23,7 +21,8 @@ dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
 Class A corresponds to the specified execution of the exercise, while the other 4
 classes correspond to common mistakes.
 
-```{r load_data}
+
+```r
 library(readr)
 
 if (!file.exists("data/pml-training.csv")) {
@@ -43,7 +42,8 @@ pml_testing <- read_csv("data/pml-testing.csv", na=c("NA","#DIV/0!",""))
 After looking at the data, I noticed that there were columns where 90% or more of
 their data were NA so I decided to remove them.
 
-```{r clean_data}
+
+```r
 library(dplyr)
 
 pml_training <- Filter(function(x) mean(is.na(x)) < 0.5, pml_training)
@@ -58,15 +58,11 @@ pml_training$classe <- factor(pml_training$classe)
 
 The data were split in a 67-33 ratio to perform training and testing.
 
-```{r parallel, echo = FALSE}
-library(parallel)
-library(doParallel)
-cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
-registerDoParallel(cluster)
-```
 
 
-```{r split_data}
+
+
+```r
 library(caret)
 set.seed(1234)
 trainIndex <- createDataPartition(y=pml_training$classe, times=1, 
@@ -77,10 +73,10 @@ pmltest <- pml_training[-trainIndex, ]
 
 train.names <- colnames(pml_training[, -ncol(pml_training)])
 pml_testing <- pml_testing[train.names]
-
 ```
 
-```{r model, cache = TRUE}
+
+```r
 set.seed(1234)
 fitControl <- trainControl(method = "cv",
                            number = 5,
@@ -90,34 +86,72 @@ fit <- train(classe ~ ., method="rf", data=pmltrain, trControl = fitControl)
 fit$finalModel
 ```
 
+```
+
+Call:
+ randomForest(x = x, y = y, mtry = min(param$mtry, ncol(x))) 
+               Type of random forest: classification
+                     Number of trees: 500
+No. of variables tried at each split: 28
+
+        OOB estimate of  error rate: 0.25%
+Confusion matrix:
+     A    B    C    D    E  class.error
+A 3738    0    0    0    1 0.0002674512
+B    7 2533    3    1    0 0.0043238994
+C    0    5 2286    2    0 0.0030527693
+D    0    0    7 2148    0 0.0032482599
+E    0    1    0    6 2410 0.0028961523
+```
+
 Now, we will use our model to predict test data and create a confusion matrix
 
-```{r predict, cache = TRUE}
+
+```r
 predictFit <- predict(fit, newdata = pmltest)
 cm <- confusionMatrix(predictFit, pmltest$classe)
 cm
 ```
-```{r heatmap, echo=FALSE}
-library(ggplot2)
 
-df <- as.data.frame(cm$table)
-
-ggplot(df, aes(Prediction, Reference, fill = Freq)) +
-  geom_tile(color = "white",
-            lwd = 1.5,
-            linetype = 1) +
-  labs(x = "Prediction", y = "Actual", title = "Confusion matrix of quality",
-       fill = "Select") +
-  geom_text(aes(label = Freq), color = "white", size = 4) +
-  coord_fixed() 
 ```
+Confusion Matrix and Statistics
 
+          Reference
+Prediction    A    B    C    D    E
+         A 1841    2    0    0    0
+         B    0 1250    5    0    0
+         C    0    1 1124    6    0
+         D    0    0    0 1054    1
+         E    0    0    0    1 1189
 
+Overall Statistics
+                                         
+               Accuracy : 0.9975         
+                 95% CI : (0.996, 0.9986)
+    No Information Rate : 0.2844         
+    P-Value [Acc > NIR] : < 2.2e-16      
+                                         
+                  Kappa : 0.9969         
+                                         
+ Mcnemar's Test P-Value : NA             
 
-```{r turnOffParallelism, echo = FALSE}
-stopCluster(cluster)
-registerDoSEQ()
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            1.0000   0.9976   0.9956   0.9934   0.9992
+Specificity            0.9996   0.9990   0.9987   0.9998   0.9998
+Pos Pred Value         0.9989   0.9960   0.9938   0.9991   0.9992
+Neg Pred Value         1.0000   0.9994   0.9991   0.9987   0.9998
+Prevalence             0.2844   0.1935   0.1744   0.1639   0.1838
+Detection Rate         0.2844   0.1931   0.1736   0.1628   0.1837
+Detection Prevalence   0.2847   0.1939   0.1747   0.1630   0.1838
+Balanced Accuracy      0.9998   0.9983   0.9971   0.9966   0.9995
 ```
+![](index_files/figure-html/heatmap-1.png)<!-- -->
+
+
+
+
 
 
 ## Conclusions 
