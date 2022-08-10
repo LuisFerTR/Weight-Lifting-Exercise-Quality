@@ -156,7 +156,7 @@ Balanced Accuracy      0.9998   0.9983   0.9971   0.9966   0.9995
 
 ## Conclusions 
 
-In this case, given the fact we are using random forest method, our in sample error is OOB and it has the value of 0.25%, in the other hand, our out sample error is 0.025.
+In this case, given the fact we are using random forest method, our in sample error is OOB and it has the value of 0.25%, in the other hand, our out sample error is 0.0025%.
 
 
 ## Bibliography
