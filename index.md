@@ -10,7 +10,7 @@ output:
 
 
 ## Summary
-The goal of this project is create model to predict the quality of how an exercise is performed using data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
+The goal of this project is create a model to predict the quality of how an exercise is performed using data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
 
 ## The data
 
@@ -21,52 +21,63 @@ dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
 Class A corresponds to the specified execution of the exercise, while the other 4
 classes correspond to common mistakes.
 
+### Load and clean data
 
 ```r
 library(readr)
 
-if (!file.exists("data/pml-training.csv")) {
-  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
-                destfile = "data/pml-training.csv")
-}
+url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 
-if (!file.exists("data/pml-testing.csv")) {
-  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
-                destfile = "data/pml-testing.csv")
-}
+pml_training <- read_csv(url_train, na=c("NA","#DIV/0!",""))
+pml_testing <- read_csv(url_test, na=c("NA","#DIV/0!",""))
 
-pml_training <- read_csv("data/pml-training.csv", na=c("NA","#DIV/0!",""))
-pml_testing <- read_csv("data/pml-testing.csv", na=c("NA","#DIV/0!",""))
+dim(pml_training)
 ```
 
-After looking at the data, I noticed that there were columns where 90% or more of
-their data were NA so I decided to remove them.
+```
+[1] 19622   160
+```
+
+For the feature selection we will first remove the near zero variance variables since they are considered to have less predictive power, then remove the variables that are mostly NA and finally the identification variables.
 
 
 ```r
-library(dplyr)
+library(caret)
 
-pml_training <- Filter(function(x) mean(is.na(x)) < 0.5, pml_training)
-pml_testing <- Filter(function(x) mean(is.na(x)) < 0.5, pml_testing)
+# Remove variables with Nearly Zero Variance
+nzv <- nearZeroVar(pml_training, saveMetrics = TRUE)
+pml_training <- pml_training[, nzv$nzv==FALSE]
+pml_testing <- pml_testing[, nzv$nzv==FALSE]
 
-# Removing identification variables
+# Remove variables that are mostly NA
+pml_training <- Filter(function(x) mean(is.na(x)) < 0.6, pml_training)
+pml_testing <- Filter(function(x) mean(is.na(x)) < 0.6, pml_testing)
+
+# Remove identification variables
 pml_training <- pml_training[-(1:5)]
+pml_testing <- pml_testing[-(1:5)]
 
 # Categorical variable
 pml_training$classe <- factor(pml_training$classe)
 ```
 
-The data were split in a 67-33 ratio to perform training and testing.
 
 
 
+
+
+## The model
+
+The model will be built using the random forest method and the data will be divided in a ratio of 70-30 to perform training and testing.
+
+Cross validation is done with K = 5.
 
 
 ```r
-library(caret)
 set.seed(1234)
 trainIndex <- createDataPartition(y=pml_training$classe, times=1, 
-                                  p=0.67, list=FALSE)
+                                  p=0.7, list=FALSE)
 
 pmltrain <- pml_training[trainIndex, ]
 pmltest <- pml_training[-trainIndex, ]
@@ -104,7 +115,9 @@ D    0    0    7 2148    0 0.0032482599
 E    0    1    0    6 2410 0.0028961523
 ```
 
-Now, we will use our model to predict test data and create a confusion matrix
+## Prediction with Random Forest
+
+Now, we will use our model to predict test data and plot a confusion matrix
 
 
 ```r
@@ -152,11 +165,6 @@ Balanced Accuracy      0.9998   0.9983   0.9971   0.9966   0.9995
 
 
 
-
-
-## Conclusions 
-
-In this case, given the fact we are using random forest method, our in sample error is OOB and it has the value of 0.25%, in the other hand, our out sample error is 0.0025%.
 
 
 ## Bibliography

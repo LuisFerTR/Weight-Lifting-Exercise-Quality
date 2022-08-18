@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/931355/78bde9a329f84402b17ea24e665389e0
+bundleId: https://api.rpubs.com/api/v1/document/931355/78bde9a329f84402b17ea24e665389e0
+url: http://rpubs.com/luistr15/931355
+when: 1660866243.60928
+lastSyncTime: 1660866243.60928
